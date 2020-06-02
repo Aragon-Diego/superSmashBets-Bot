@@ -1,6 +1,9 @@
 const tmi = require('tmi.js');
 var firebase = require("firebase");
 require('dotenv').config()
+var http = require('http');
+
+
 var firebaseConfig = {
   apiKey: process.env.API_KEY ,
   authDomain: process.env.AUTH_DOMAIN ,
@@ -12,24 +15,24 @@ var firebaseConfig = {
   measurementId:process.env.MEASUREMENT_ID
 };
 firebase.initializeApp(firebaseConfig);
-
 var database = firebase.database();
-// Define configuration options
 var bet = {};
+let jug1="!mango";
+let jug2="!hbox";
 const opts = {
   identity: {
     username: "supersmashbets",
     password: process.env.PASSWORD
   },
   channels: [
-    "supersmashbets",
+    "slowking_0",
   ]
 };
-// Create a client with our options
 const client = new tmi.client(opts);
-
-// Register our event handlers (defined below)
 client.on('message', onMessageHandler);
+opts.channels.forEach(canal => {
+  bet[canal]=false;  
+});
 client.on('connected', onConnectedHandler);
 
 // Connect to Twitch:
@@ -39,7 +42,6 @@ client.connect();
 function onMessageHandler (target, context, msg, self) {
     if (self) { return; } // Ignore messages from the bot
     const user=context.username;
-    const userMod=context
     const commandName = msg.trim();
     switch(commandName){
         case '!join': 
@@ -51,13 +53,42 @@ function onMessageHandler (target, context, msg, self) {
         case '!points':
             const myPoints=points(user,target);
         break;
-        default:
-          if (commandName.charAt(0)==="!"){
-            client.say(target, `${user} not a command, use !roll`);
-          } 
+        case jug1:
+          client.say(target, `@${user} player1 is ${jug1}`);
+        break;
+        case jug2:
+          client.say(target, `@${user} player1 is ${jug1}`);
+        break;
+    }
+    if (commandName.includes("!configure")){
+      configure(user,target,commandName);
     }
 }
-// Function called when the "dice" command is issued
+function bet(user,target,message){
+
+}
+function configure(user,target,message){
+  console.log("here!")
+  var url = 'http://tmi.twitch.tv/group/user/'+target.substring(1)+'/chatters';
+  var req =http.get(url, function(res){
+    var body = '';
+    res.on('data', function(chunk){
+        body += chunk;
+    });
+    res.on('end', function(){
+        var response = JSON.parse(body);
+        if ((user in response.chatters.moderators) || user =="slowking_0"){
+          message.split(" ");
+          jug1=message[1];
+          jug2=message[2];
+          client.say(target, `@${user} Done!`);
+        }
+    });
+    }).on('error', function(e){
+          console.log("Got an error: ", e);
+    });
+    req.end();
+}
 function join (user,target) {
   firebase.database().ref("usuarios/"+user).once("value", snapshot => {
     if (!snapshot.exists()){
@@ -93,6 +124,7 @@ function points(user,target){
     }  
   });
 }
+
 // Called every time the bot connects to Twitch chat
 function onConnectedHandler (addr, port) {
   console.log(`* Connected to ${addr}:${port}`);
